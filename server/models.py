@@ -17,10 +17,10 @@ db = SQLAlchemy(metadata=MetaData(naming_convention={
 class User(db.Model,SerializerMixin):
     __tablename__ = 'users'
 
-    id = db.Column(db.integer,primary_key= True)
-    first_name = db.Column(db.string(50), nullable = False)
-    last_name = db.Column(db.string(50), nullable = False)
-    email = db.Column(db.string(100) ,unique=True ,nullable=False)
+    id = db.Column(db.Integer,primary_key= True)
+    first_name = db.Column(db.String(50), nullable = False)
+    last_name = db.Column(db.String(50), nullable = False)
+    email = db.Column(db.String(100) ,unique=True ,nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.String(20), nullable=False)
 
