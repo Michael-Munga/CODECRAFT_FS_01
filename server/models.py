@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
 from sqlalchemy_serializer import SerializerMixin
+from flask_bcrypt import Bcrypt
 
 # naming convention
 db = SQLAlchemy(metadata=MetaData(naming_convention={
@@ -10,7 +11,7 @@ db = SQLAlchemy(metadata=MetaData(naming_convention={
     "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
     "pk": "pk_%(table_name)s"
 }))
-
+bcrypt = Bcrypt()
 # user model
 # ----------------------
 
@@ -32,6 +33,13 @@ class User(db.Model,SerializerMixin):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
+    
+    # password methods
+    def set_password(self, password):
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
   
     
 
