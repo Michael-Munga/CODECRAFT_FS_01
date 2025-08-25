@@ -5,8 +5,11 @@ from flask import Flask
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+from flask_restful import Api
 
 from models import db,bcrypt
+
+from resources.auth import AuthResource
 
 # Load env vars 
 load_dotenv()
@@ -26,6 +29,13 @@ jwt = JWTManager(app)
 db.init_app(app)
 migrate = Migrate(app, db)
 CORS(app)
+
+# API
+api = Api(app)
+
+# Resources
+api.add_resource(AuthResource, "/auth/<string:action>")
+
 
 
 
