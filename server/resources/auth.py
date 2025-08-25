@@ -44,28 +44,64 @@ class AuthResource(Resource):
                 "redirect_url": redirect_url
             }, 200
 
-        # REGISTER (Admin only)
+        # REGISTER -->User self-signup or Admin creates account
        
         elif action == "register":
-            @jwt_required()
-            def register_user():
-                current_user_id = get_jwt_identity()
-                current_user = User.query.get(current_user_id)
-                if not current_user or current_user.role.role_name != "Admin":
-                    return {"error": "Admin privileges required"}, 403
+            auth_header = request.headers.get("Authorization", None)
 
-                # validate new user data
+            if auth_header:  
+                @jwt_required()
+                def register_admin_or_user():
+                    current_user_id = get_jwt_identity()
+                    current_user = User.query.get(current_user_id)
+                    if not current_user or current_user.role.role_name != "Admin":
+                        return {"error": "Admin privileges required"}, 403
+
+                    # validate new user data
+                    if not first_name or not last_name:
+                        return {"error": "First and last name are required"}, 400
+                    if User.query.filter_by(email=email).first():
+                        return {"error": "Email already exists"}, 409
+
+                    # get role (Admin can choose Admin/User)
+                    role = Role.query.filter_by(role_name=role_name).first()
+                    if not role:
+                        return {"error": f"Role '{role_name}' does not exist"}, 400
+
+                    # create user
+                    new_user = User(
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        role=role
+                    )
+                    new_user.set_password(password)
+
+                    db.session.add(new_user)
+                    db.session.commit()
+
+                    return {
+                        "user": {
+                            "id": new_user.id,
+                            "email": new_user.email,
+                            "full_name": new_user.full_name,
+                            "role": new_user.role.role_name
+                        },
+                        "message": "User created successfully by Admin"
+                    }, 201
+
+                return register_admin_or_user()
+
+            else:  
                 if not first_name or not last_name:
                     return {"error": "First and last name are required"}, 400
                 if User.query.filter_by(email=email).first():
                     return {"error": "Email already exists"}, 409
 
-                # get role
-                role = Role.query.filter_by(role_name=role_name).first()
+                role = Role.query.filter_by(role_name="User").first()
                 if not role:
-                    return {"error": f"Role '{role_name}' does not exist"}, 400
+                    return {"error": "Default role 'User' does not exist"}, 500
 
-                # create user
                 new_user = User(
                     first_name=first_name,
                     last_name=last_name,
@@ -84,10 +120,8 @@ class AuthResource(Resource):
                         "full_name": new_user.full_name,
                         "role": new_user.role.role_name
                     },
-                    "message": "User created successfully"
+                    "message": "User signed up successfully"
                 }, 201
-
-            return register_user()  
 
         # UNSUPPORTED ACTION
         
