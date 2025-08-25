@@ -1,6 +1,6 @@
 from flask import request
 from flask_restful import Resource
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token
 from models import User, Role, db
 import re
 
@@ -13,7 +13,6 @@ class AuthResource(Resource):
         password = data.get("password", "")
         first_name = data.get("first_name", "").strip()
         last_name = data.get("last_name", "").strip()
-        role_name = data.get("role", "User")  # default role = User
 
         # Validate email and password presence
         if not email or not password:
@@ -22,7 +21,7 @@ class AuthResource(Resource):
             return {"error": "Invalid email format"}, 400
 
         # LOGIN
-    
+        
         if action == "login":
             user = User.query.filter_by(email=email).first()
             if not user or not user.check_password(password):
@@ -30,7 +29,6 @@ class AuthResource(Resource):
 
             token = create_access_token(identity=user.id)
 
-            # role-based redirect
             redirect_url = "/admin/dashboard" if user.role.role_name == "Admin" else "/user/dashboard"
 
             return {
@@ -44,86 +42,43 @@ class AuthResource(Resource):
                 "redirect_url": redirect_url
             }, 200
 
-        # REGISTER -->User self-signup or Admin creates account
-       
+        # REGISTER (self-signup only normal users)
         elif action == "register":
-            auth_header = request.headers.get("Authorization", None)
+            if not first_name or not last_name:
+                return {"error": "First and last name are required"}, 400
+            if User.query.filter_by(email=email).first():
+                return {"error": "Email already exists"}, 409
 
-            if auth_header:  
-                @jwt_required()
-                def register_admin_or_user():
-                    current_user_id = get_jwt_identity()
-                    current_user = User.query.get(current_user_id)
-                    if not current_user or current_user.role.role_name != "Admin":
-                        return {"error": "Admin privileges required"}, 403
+            # Assign default "User" role
+            role = Role.query.filter_by(role_name="User").first()
+            if not role:
+                return {"error": "Default role 'User' does not exist"}, 500
 
-                    # validate new user data
-                    if not first_name or not last_name:
-                        return {"error": "First and last name are required"}, 400
-                    if User.query.filter_by(email=email).first():
-                        return {"error": "Email already exists"}, 409
+            new_user = User(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                role=role
+            )
+            new_user.set_password(password)
 
-                    # get role (Admin can choose Admin/User)
-                    role = Role.query.filter_by(role_name=role_name).first()
-                    if not role:
-                        return {"error": f"Role '{role_name}' does not exist"}, 400
+            db.session.add(new_user)
+            db.session.commit()
 
-                    # create user
-                    new_user = User(
-                        first_name=first_name,
-                        last_name=last_name,
-                        email=email,
-                        role=role
-                    )
-                    new_user.set_password(password)
+            token = create_access_token(identity=new_user.id)
 
-                    db.session.add(new_user)
-                    db.session.commit()
-
-                    return {
-                        "user": {
-                            "id": new_user.id,
-                            "email": new_user.email,
-                            "full_name": new_user.full_name,
-                            "role": new_user.role.role_name
-                        },
-                        "message": "User created successfully by Admin"
-                    }, 201
-
-                return register_admin_or_user()
-
-            else:  
-                if not first_name or not last_name:
-                    return {"error": "First and last name are required"}, 400
-                if User.query.filter_by(email=email).first():
-                    return {"error": "Email already exists"}, 409
-
-                role = Role.query.filter_by(role_name="User").first()
-                if not role:
-                    return {"error": "Default role 'User' does not exist"}, 500
-
-                new_user = User(
-                    first_name=first_name,
-                    last_name=last_name,
-                    email=email,
-                    role=role
-                )
-                new_user.set_password(password)
-
-                db.session.add(new_user)
-                db.session.commit()
-
-                return {
-                    "user": {
-                        "id": new_user.id,
-                        "email": new_user.email,
-                        "full_name": new_user.full_name,
-                        "role": new_user.role.role_name
-                    },
-                    "message": "User signed up successfully"
-                }, 201
+            return {
+                "user": {
+                    "id": new_user.id,
+                    "email": new_user.email,
+                    "full_name": new_user.full_name,
+                    "role": new_user.role.role_name
+                },
+                "access_token": token,
+                "redirect_url": "/user/dashboard",
+                "message": "User signed up successfully"
+            }, 201
 
         # UNSUPPORTED ACTION
-        
         else:
             return {"error": "Unsupported auth action"}, 400
