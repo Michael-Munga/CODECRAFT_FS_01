@@ -10,14 +10,21 @@ import {
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Button } from "@components/ui/button";
+import api from "@services/api";
+
+import { useNavigate } from "react-router-dom";
 
 export default function LoginCard() {
   const [showSignUp, setShowSignUp] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
-    name: "",
+    first_name: "",
+    last_name: "",
     password: "",
   });
+
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   // handleChange
   const handleChange = (e) => {
@@ -29,20 +36,47 @@ export default function LoginCard() {
   };
 
   // handleSubmit
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form Data:", formData);
+    setError("");
 
-    if (showSignUp) {
-      // reset all for signup
-      setFormData({ email: "", name: "", password: "" });
-    } else {
-      // reset only login fields
-      setFormData((prev) => ({
-        ...prev,
-        email: "",
-        password: "",
-      }));
+    try {
+      if (showSignUp) {
+        // Sign up API call
+        const res = await api.post("/auth/register", {
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          password: formData.password,
+        });
+
+        alert(
+          res.data.message || "Account created successfully! Please log in."
+        );
+        setShowSignUp(false);
+      } else {
+        // Login API call
+        const res = await api.post("/auth/login", {
+          email: formData.email,
+          password: formData.password,
+        });
+
+        // Save token
+        localStorage.setItem("access_token", res.data.access_token);
+
+        // Redirect based on role
+        if (res.data.user.role === "Admin") {
+          navigate("/admin/dashboard");
+        } else {
+          navigate("/user/dashboard");
+        }
+      }
+
+      // Reset form fields
+      setFormData({ email: "", first_name: "", last_name: "", password: "" });
+    } catch (err) {
+      // Display API error
+      setError(err.response?.data?.error || "Something went wrong");
     }
   };
 
@@ -58,15 +92,27 @@ export default function LoginCard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
             <form onSubmit={handleSubmit}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="first_name">First Name</Label>
                   <Input
-                    id="name"
-                    name="name"
+                    id="first_name"
+                    name="first_name"
                     type="text"
-                    value={formData.name}
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="last_name">Last Name</Label>
+                  <Input
+                    id="last_name"
+                    name="last_name"
+                    type="text"
+                    value={formData.last_name}
                     onChange={handleChange}
                     required
                   />
@@ -120,6 +166,7 @@ export default function LoginCard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
             <form onSubmit={handleSubmit}>
               <div className="flex flex-col gap-6">
                 <div className="grid gap-2">
