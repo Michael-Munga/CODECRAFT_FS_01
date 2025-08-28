@@ -13,6 +13,7 @@ import { Button } from "@components/ui/button";
 import api from "@services/api";
 
 import { useNavigate } from "react-router-dom";
+import PasswordStrengthInput from "./passwordStrengthInput";
 
 export default function LoginCard() {
   const [showSignUp, setShowSignUp] = useState(false);
@@ -21,6 +22,7 @@ export default function LoginCard() {
     first_name: "",
     last_name: "",
     password: "",
+    confirm_password: "",
   });
 
   const [error, setError] = useState("");
@@ -42,6 +44,11 @@ export default function LoginCard() {
 
     try {
       if (showSignUp) {
+        if (formData.password != formData.confirm_password) {
+          setError("Passwords do not match");
+          return;
+        }
+
         // Sign up API call
         const res = await api.post("/auth/register", {
           first_name: formData.first_name,
@@ -73,7 +80,13 @@ export default function LoginCard() {
       }
 
       // Reset form fields
-      setFormData({ email: "", first_name: "", last_name: "", password: "" });
+      setFormData({
+        email: "",
+        first_name: "",
+        last_name: "",
+        password: "",
+        confirm_password: "",
+      });
     } catch (err) {
       // Display API error
       setError(err.response?.data?.error || "Something went wrong");
@@ -128,13 +141,21 @@ export default function LoginCard() {
                     required
                   />
                 </div>
+                {/* Password with strength indicator */}
+                <PasswordStrengthInput
+                  password={formData.password}
+                  setPassword={(value) =>
+                    setFormData((prev) => ({ ...prev, password: value }))
+                  }
+                />
+                {/* Confirm Password field */}
                 <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="confirm_password">Confirm Password</Label>
                   <Input
-                    id="password"
+                    id="confirm_password"
                     type="password"
-                    name="password"
-                    value={formData.password}
+                    name="confirm_password"
+                    value={formData.confirm_password}
                     onChange={handleChange}
                     required
                   />
